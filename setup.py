@@ -38,6 +38,7 @@ from setup_utils import (
     is_solaris_platform,
     is_truthy_env,
     is_windows_platform,
+    is_wsl_environment,
     locate_library_file,
     prepare_pcre2_source,
     run_pkg_config,
@@ -130,26 +131,26 @@ def collect_build_config() -> dict[str, list[str] | list[tuple[str, str | None]]
         extend_unique(library_dirs, directory)
     for path in source_library_files:
         extend_unique(library_files, path)
-
-    cflags = run_pkg_config("--cflags")
-    libs = run_pkg_config("--libs")
-
-    for flag in cflags:
-        if flag.startswith("-I") and len(flag) > 2:
-            extend_unique(include_dirs, flag[2:])
-        elif flag.startswith("-D") and len(flag) > 2:
-            name_value = flag[2:].split("=", 1)
-            define_macros.append((name_value[0], name_value[1] if len(name_value) > 1 else None))
-        else:
-            extra_compile_args.append(flag)
-
-    for flag in libs:
-        if flag.startswith("-L") and len(flag) > 2:
-            extend_unique(library_dirs, flag[2:])
-        elif flag.startswith("-l") and len(flag) > 2:
-            extend_unique(libraries, flag[2:])
-        else:
-            extra_link_args.append(flag)
+    if not is_windows_platform() or (is_windows_platform() and is_wsl_environment()):
+        cflags = run_pkg_config("--cflags")
+        libs = run_pkg_config("--libs")
+    
+        for flag in cflags:
+            if flag.startswith("-I") and len(flag) > 2:
+                extend_unique(include_dirs, flag[2:])
+            elif flag.startswith("-D") and len(flag) > 2:
+                name_value = flag[2:].split("=", 1)
+                define_macros.append((name_value[0], name_value[1] if len(name_value) > 1 else None))
+            else:
+                extra_compile_args.append(flag)
+    
+        for flag in libs:
+            if flag.startswith("-L") and len(flag) > 2:
+                extend_unique(library_dirs, flag[2:])
+            elif flag.startswith("-l") and len(flag) > 2:
+                extend_unique(libraries, flag[2:])
+            else:
+                extra_link_args.append(flag)
 
     extend_env_paths(include_dirs, "PYPCRE_INCLUDE_DIR")
     extend_env_paths(library_dirs, "PYPCRE_LIBRARY_DIR")
